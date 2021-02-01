@@ -1,10 +1,11 @@
 var nodeConsole = require('./lib/node-console');
 var _ = require('underscore');
+var deepmerge = require('deepmerge');
 var fs = require('fs');
 var glob = require('glob');
 var path = require('path');
 var s = require('underscore.string');
-var yamlConfig = require('yaml-config');
+var yaml = require('js-yaml');
 var ejs = require('ejs');
 
 var $ = module.exports = {};
@@ -17,6 +18,20 @@ _.each(dirs, function(dir) {
 $.express = require('express');
 $.server = $.express();
 
+var readConfig = function(configFilePath) {
+    var rawConfig = yaml.load(fs.readFileSync(configFilePath));
+    var defaultConfig = rawConfig.default;
+    var fullConfig = {};
+
+    _.forEach(rawConfig, function(thisConfig, thisKey) {
+        if(thisKey === process.env.NODE_ENV) {
+            fullConfig = deepmerge(defaultConfig, thisConfig);
+        }
+    });
+
+    return fullConfig;
+}
+
 var mapRequire = function(moduleName, dirs) {
     var log = [];
     _.each(dirs, function(files) {
@@ -26,7 +41,7 @@ var mapRequire = function(moduleName, dirs) {
         var splitRefFile = function(ref, split, file, isIndex) {
             if (file.indexOf('.yaml') !== -1) {
                 ref[split] = ref[split] || {};
-                return _.extend(ref[split], yamlConfig.readConfig(path.resolve(file)));
+                return _.extend(ref[split], readConfig(path.resolve(file)));
             }
             if (file.indexOf('.ejs') !== -1) {
                 var readFile = fs.readFileSync(path.resolve(file), {encoding: 'utf8'});
